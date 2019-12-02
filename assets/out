@@ -172,6 +172,7 @@ if [ -n "$build" ]; then
    target+=("${target_name}")
   fi
 
+  update-binfmts --enable
   docker buildx create --use
   docker buildx inspect --bootstrap
   docker buildx build \

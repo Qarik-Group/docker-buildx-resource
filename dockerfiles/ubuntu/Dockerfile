@@ -38,11 +38,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     binfmt-support \
     qemu-user-static \
   && rm -rf /var/lib/apt/lists/* \
-  && \
-    mv /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64 && \
-    mv /usr/bin/qemu-arm-static /usr/bin/qemu-arm && \
-    mv /usr/bin/qemu-ppc64le-static /usr/bin/qemu-ppc64le && \
-    mv /usr/bin/qemu-s390x-static /usr/bin/qemu-s390x
+  # && \
+  #   mv /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64 && \
+  #   mv /usr/bin/qemu-arm-static /usr/bin/qemu-arm && \
+  #   mv /usr/bin/qemu-ppc64le-static /usr/bin/qemu-ppc64le && \
+  #   mv /usr/bin/qemu-s390x-static /usr/bin/qemu-s390x
 ENV DOCKER_CLI_EXPERIMENTAL=enabled
 # Install buildx plugin
 RUN mkdir -p ~/.docker/cli-plugins && \
