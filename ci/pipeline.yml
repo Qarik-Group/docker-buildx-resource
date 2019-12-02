@@ -72,6 +72,7 @@ jobs:
       - put: edge
         params:
           build:      "git"
+          cache:      true
           dockerfile: (( concat "git/" meta.docker.dockerfile ))
         on_failure:
           put: notify
