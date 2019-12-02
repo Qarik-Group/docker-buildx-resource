@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     xz-utils \
     iproute2 \
+    binfmt-support \
     qemu-user-static \
   && rm -rf /var/lib/apt/lists/*
 ENV DOCKER_CLI_EXPERIMENTAL=enabled
