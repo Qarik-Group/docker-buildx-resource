@@ -22,17 +22,23 @@ RUN apk --no-cache add \
       xz \
       util-linux \
     ;
+ENV DOCKER_CLI_EXPERIMENTAL=enabled
+ENV DOCKER_BUILDX_VERSION=0.3.1
+RUN wget https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-amd64 && \
+      mkdir -p ~/.docker/cli-plugins && \
+      mv buildx-*.linux-amd64 ~/.docker/cli-plugins/docker-buildx && \
+      chmod a+x ~/.docker/cli-plugins/docker-buildx
 COPY --from=builder /assets /opt/resource
 RUN ln -s /opt/resource/ecr-login /usr/local/bin/docker-credential-ecr-login
 
 # stage: tests
-FROM resource AS tests
-COPY --from=builder /tests /tests
-ADD . /docker-image-resource
-RUN set -e; \
-    for test in /tests/*.test; do \
-      $test -ginkgo.v; \
-    done
+# FROM resource AS tests
+# COPY --from=builder /tests /tests
+# ADD . /docker-image-resource
+# RUN set -e; \
+#     for test in /tests/*.test; do \
+#       $test -ginkgo.v; \
+#     done
 
 # final output stage
 FROM resource

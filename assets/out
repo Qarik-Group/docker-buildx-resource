@@ -67,7 +67,7 @@ build_args=$(jq -r '.params.build_args // {}' < $payload)
 build_args_file=$(jq -r '.params.build_args_file // ""' < $payload)
 labels=$(jq -r '.params.labels // {}' < $payload)
 labels_file=$(jq -r '.params.labels_file // ""' < $payload)
-
+buildx_platforms=$(jq -r '.params.buildx_platforms // "linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6"' < $payload)
 
 tag_name=""
 if [ -n "$tag_params" ]; then
@@ -94,73 +94,16 @@ if [ -z "$repository" ]; then
   exit 1
 fi
 
-load=$(jq -r '.params.load // ""' < $payload)
-
-load_base=$(jq -r '.params.load_base // ""' < $payload)
-load_bases=$(jq -r '.params.load_bases // empty' < $payload)
 build=$(jq -r '.params.build // ""' < $payload)
-cache=$(jq -r '.params.cache' < $payload)
-cache_tag=$(jq -r ".params.cache_tag // \"${tag_name}\"" < $payload)
-cache_from=$(jq -r '.params.cache_from // empty' < $payload)
 dockerfile=$(jq -r ".params.dockerfile // \"${build}/Dockerfile\"" < $payload)
 
-load_file=$(jq -r '.params.load_file // ""' < $payload)
-load_repository=$(jq -r '.params.load_repository // ""' < $payload)
-load_tag=$(jq -r '.params.load_tag // "latest"' < $payload)
-
-import_file=$(jq -r '.params.import_file // ""' < $payload)
-
-pull_repository=$(jq -r '.params.pull_repository // ""' < $payload)
-pull_tag=$(jq -r '.params.pull_tag // "latest"' < $payload)
 target_name=$(jq -r '.params.target_name // ""' < $payload)
 
-if [ -n "$load" ]; then
-  docker load -i "${load}/image"
-  docker tag $(cat "${load}/image-id") "${repository}:${tag_name}"
-elif [ -n "$build" ]; then
+if [ -n "$build" ]; then
   if [ ! -f "$dockerfile" ]; then
     echo "It doesn't appear that given Dockerfile: \"$dockerfile\" is a file"
     exit 1
   fi
-
-  load_images=()
-
-  if [ -n "$load_base" ]; then
-    load_images+=("$load_base")
-  fi
-
-  for load_image in $(echo $load_bases | jq -r '.[]'); do
-    load_images+=("$load_image")
-  done
-
-  for load_image in $(echo $cache_from | jq -r '.[]'); do
-    load_images+=("$load_image")
-  done
-
-  for load_image in "${load_images[@]}"; do
-    docker load -i "${load_image}/image"
-    docker tag \
-      "$(cat "${load_image}/image-id")" \
-      "$(cat "${load_image}/repository"):$(cat "${load_image}/tag")"
-  done
-
-  cache_from_args=()
-
-  if [ "$cache" = "true" ]; then
-    if docker_pull "${repository}:${cache_tag}"; then
-      cache_from_args+=("--cache-from ${repository}:${cache_tag}")
-    fi
-  fi
-
-  if [ -n "$cache_from" ]; then
-    for cache_from_dir in $(echo $cache_from | jq -r '.[]'); do
-      cache_image="$(cat "${cache_from_dir}/repository")"
-      cache_tag="$(cat "${cache_from_dir}/tag")"
-      cache_from_args+=("--cache-from ${cache_image}:${cache_tag}")
-    done
-  fi
-
-  cache_from="${cache_from_args[@]}"
 
   expanded_build_args=()
 
@@ -229,62 +172,26 @@ elif [ -n "$build" ]; then
    target+=("${target_name}")
   fi
 
-  ECR_REGISTRY_PATTERN='/[a-zA-Z0-9][a-zA-Z0-9_-]*\.dkr\.ecr\.[a-zA-Z0-9][a-zA-Z0-9_-]*\.amazonaws\.com(\.cn)?[^ ]*/'
-  ecr_images=$(egrep '^\s*FROM|^\s*ARG' ${dockerfile} | \
-             awk "match(\$0,${ECR_REGISTRY_PATTERN}){print substr(\$0, RSTART, RLENGTH)}" )
-  if [ -n "$ecr_images" ]; then
-    for ecr_image in $ecr_images
-    do
-      # pull will perform an authentication process needed for ECR
-      # there is an experimental endpoint to support long running sessions
-      # docker cli does not support it yet though
-      # see https://github.com/moby/moby/pull/32677
-      # and https://github.com/awslabs/amazon-ecr-credential-helper/issues/9
-      docker pull "${ecr_image}"
-    done    
-  fi
-
-  docker build -t "${repository}:${tag_name}" "${target[@]}" "${expanded_build_args[@]}" "${expanded_labels[@]}" -f "$dockerfile" $cache_from "$build"
-elif [ -n "$load_file" ]; then
-  if [ -n "$load_repository" ]; then
-    docker load -i "$load_file"
-    docker tag "${load_repository}:${load_tag}" "${repository}:${tag_name}"
-  else
-    echo "must specify load_repository param"
-    exit 1
-  fi
-elif [ -n "$import_file" ]; then
-  cat "$import_file" | docker import - "${repository}:${tag_name}"
-elif [ -n "$pull_repository" ]; then
-  docker pull "${pull_repository}:${pull_tag}"
-  docker tag "${pull_repository}:${pull_tag}" "${repository}:${tag_name}"
+  docker buildx create --use
+  docker buildx build \
+    --platform "${buildx_platforms}" \
+    --tag "${repository}:${tag_name}" \
+    --file "${dockerfile}" \
+    "${target[@]}" \
+    "${expanded_build_args[@]}" \
+    "${expanded_labels[@]}" \
+    "${build}" \
+    --push
 else
-  echo "must specify build, load, load_file, import_file, or pull_repository params"
+  echo "must specify build params (for compatibility with docker-image-resource)"
   exit 1
 fi
+
+docker pull "${repository}:${tag_name}"
 
 image_id="$(image_from_tag "$repository" "$tag_name")"
 
-# afaict there's no clean way to get the digest after a push. docker prints
-# this line at the end at least:
-#
-#   (tagname): digest: (digest) size: (size)
-#
-# so just parse it out
-
-# careful to not let 'tee' mask exit status
-
-{
-  if ! docker push "${repository}:${tag_name}"; then
-    touch /tmp/push-failed
-  fi
-} | tee push-output
-
-if [ -e /tmp/push-failed ]; then
-  exit 1
-fi
-
-digest="$(grep 'digest' push-output | awk '{print $3}')"
+digest="$(docker inspect --format='{{index .RepoDigests 0}}' "${repository}:${tag_name}" | sed -e "s%^.*@%%")"
 
 if [ "$need_tag_as_latest" = "true" ] && [ "${tag_name}" != "latest"  ]; then
   docker tag "${repository}:${tag_name}" "${repository}:latest"

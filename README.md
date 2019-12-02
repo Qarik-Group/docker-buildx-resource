@@ -1,8 +1,14 @@
-# Docker Image Resource
+# Multiarch Docker Resource
 
-Tracks and builds [Docker](https://docker.io) images.
+Builds multi-architecture [Docker](https://docker.io) images using the `docker buildx` experimental plugin for Concourse CI.
 
-Note: docker registry must be [v2](https://docs.docker.com/registry/spec/api/).
+Learn more about multi-architecture images and [Docker Buildx](https://docs.docker.com/buildx/working-with-buildx).
+
+This Concourse CI resource otherwise the same as the popular [docker-image-resource](https://github.com/concourse/docker-image-resource).
+
+The initial implementation removed many options from the build/out implementation. These may be added back in future.
+
+If you want "push only" features, then use [docker-image-resource](https://github.com/concourse/docker-image-resource).
 
 ## Source Configuration
 
@@ -19,17 +25,14 @@ Note: docker registry must be [v2](https://docs.docker.com/registry/spec/api/).
 
 * `password`: *Optional.* The password to use when authenticating.
 
-* `aws_access_key_id`: *Optional.* AWS access key to use for acquiring ECR
-  credentials.
+* `aws_access_key_id`: *Optional.* AWS access key to use for acquiring ECR credentials.
 
-* `aws_secret_access_key`: *Optional.* AWS secret key to use for acquiring ECR
-  credentials.
+* `aws_secret_access_key`: *Optional.* AWS secret key to use for acquiring ECR credentials.
 
-* `aws_session_token`: *Optional.* AWS session token (assumed role) to use for acquiring ECR
-  credentials.
+* `aws_session_token`: *Optional.* AWS session token (assumed role) to use for acquiring ECR credentials.
 
 * `insecure_registries`: *Optional.* An array of CIDRs or `host:port` addresses
-  to whitelist for insecure access (either `http` or unverified `https`).
+  to whitelist for insecure access (either `http` or unverified `https`.
   This option overrides any entries in `ca_certs` with the same address.
 
 * `registry_mirror`: *Optional.* A URL pointing to a docker registry mirror service.
@@ -136,7 +139,7 @@ params: {...}
 get_params: {skip_download: true}
 ```
 
-### `out`: Push an image, or build and push a `Dockerfile`.
+### `out`: Build and push a `Dockerfile`.
 
 Push a Docker image to the source's repository and tag. The resulting
 version is the image's digest.
@@ -259,47 +262,49 @@ version is the image's digest.
   prepended with this string. This is useful for adding `v` in front of version
   numbers.
 
-* `target_name`: *Optional.*  Specify the name of the target build stage. 
+* `target_name`: *Optional.*  Specify the name of the target build stage.
   Only supported for multi-stage Docker builds
 
 
 ## Example
 
 ``` yaml
+resource_types:
+- name: docker-buildx
+  type: docker-image
+  privileged: true
+  source:
+    repository: starkandwayne/docker-image-resource
+    tag: latest
+
 resources:
 - name: git-resource
   type: git
   source: # ...
 
 - name: git-resource-image
-  type: docker-image
+  type: docker-buildx
   source:
     repository: concourse/git-resource
     username: username
     password: password
-
-- name: git-resource-rootfs
-  type: s3
-  source: # ...
 
 jobs:
 - name: build-rootfs
   plan:
   - get: git-resource
   - put: git-resource-image
-    params: {build: git-resource}
-    get_params: {rootfs: true}
-  - put: git-resource-rootfs
-    params: {file: git-resource-image/rootfs.tar}
+    params:
+        build: git-resource
 ```
 
 ## Development
 
 ### Prerequisites
 
-* golang is *required* - version 1.9.x is tested; earlier versions may also
+* golang is *required* - version 1.13.x is tested; earlier versions may also
   work.
-* docker is *required* - version 17.06.x is tested; earlier versions may also
+* docker is *required* - version 19.03.x is tested; earlier versions may also
   work.
 
 ### Running the tests
@@ -312,8 +317,8 @@ will stop the build.
 Run the tests with the following commands for both `alpine` and `ubuntu` images:
 
 ```sh
-docker build -t docker-image-resource -f dockerfiles/alpine/Dockerfile .
-docker build -t docker-image-resource -f dockerfiles/ubuntu/Dockerfile .
+docker build -t docker-buildx-resource -f dockerfiles/alpine/Dockerfile .
+docker build -t docker-buildx-resource -f dockerfiles/ubuntu/Dockerfile .
 ```
 
 To use the newly built image, push it to a docker registry that's accessible to
@@ -321,7 +326,7 @@ Concourse and configure your pipeline to use it:
 
 ```yaml
 resource_types:
-- name: docker-image-resource
+- name: docker-buildx
   type: docker-image
   privileged: true
   source:
@@ -330,7 +335,7 @@ resource_types:
 
 resources:
 - name: some-image
-  type: docker-image-resource
+  type: docker-buildx
   ...
 ```
 

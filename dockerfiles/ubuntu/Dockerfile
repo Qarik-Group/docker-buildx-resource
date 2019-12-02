@@ -36,7 +36,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xz-utils \
     iproute2 \
   && rm -rf /var/lib/apt/lists/*
-
+ENV DOCKER_CLI_EXPERIMENTAL=enabled
+ENV DOCKER_BUILDX_VERSION=0.3.1
+RUN wget https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-amd64 && \
+      mkdir -p ~/.docker/cli-plugins && \
+      mv buildx-*.linux-amd64 ~/.docker/cli-plugins/docker-buildx && \
+      chmod a+x ~/.docker/cli-plugins/docker-buildx
 COPY --from=builder /assets /opt/resource
 RUN ln -s /opt/resource/ecr-login /usr/local/bin/docker-credential-ecr-login
 
