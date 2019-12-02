@@ -49,13 +49,13 @@ COPY --from=builder /assets /opt/resource
 RUN ln -s /opt/resource/ecr-login /usr/local/bin/docker-credential-ecr-login
 
 # stage: tests
-FROM resource AS tests
-COPY --from=builder /tests /tests
-ADD . /docker-image-resource
-RUN set -e; \
-    for test in /tests/*.test; do \
-      $test -ginkgo.v; \
-    done
+# FROM resource AS tests
+# COPY --from=builder /tests /tests
+# ADD . /docker-image-resource
+# RUN set -e; \
+#     for test in /tests/*.test; do \
+#       $test -ginkgo.v; \
+#     done
 
 # final output stage
 FROM resource
