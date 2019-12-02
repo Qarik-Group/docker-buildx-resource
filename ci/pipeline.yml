@@ -21,7 +21,7 @@ meta:
   image:    starkandwayne/concourse
 
   docker:
-    root: "dockerfiles/ubuntu"
+    dockerfile: "Dockerfile"
 
   git:
     email:  (( param "Please provide the git email for automated commits" ))
@@ -71,7 +71,8 @@ jobs:
         trigger: true
       - put: edge
         params:
-          build: (( concat "git/" meta.docker.root ))
+          build:      "git"
+          dockerfile: (( concat "git/" meta.docker.dockerfile ))
         on_failure:
           put: notify
           params:

@@ -7,7 +7,7 @@ meta:
   initial_version: 0.5.0
 
   docker:
-    root: ""
+    dockerfile: "dockerfiles/ubuntu/Dockerfile"
 
   git:
     email:  ((git-commit-email))
