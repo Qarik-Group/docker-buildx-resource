@@ -6,9 +6,7 @@ Learn more about multi-architecture images and [Docker Buildx](https://docs.dock
 
 This Concourse CI resource otherwise the same as the popular [docker-image-resource](https://github.com/concourse/docker-image-resource).
 
-The initial implementation removed many options from the build/out implementation. These may be added back in future.
-
-If you want "push only" features, then use [docker-image-resource](https://github.com/concourse/docker-image-resource).
+The initial implementation removed many options from the build/out implementation for which I could not yet determine the equivalent feature for multi-arch support. I may need to switch to interacting directly with the registry via its API. For example https://stackoverflow.com/a/38362476/36170.
 
 ## Source Configuration
 
